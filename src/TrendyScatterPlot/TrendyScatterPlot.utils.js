@@ -7,9 +7,28 @@ const generateScatterPlot = line => {
 	})
 }
 
+const groupPointsByDate = line => {
+  const grouped = {}
+  line.forEach(([date, point]) => {
+		const d = moment.utc(date).format('MM/DD/YYYY')
+    if (grouped[d]) {
+      grouped[d].push(point)
+    } else {
+      grouped[d] = [point]
+		}
+  })
+  const groupedLine = []
+  Object.keys(grouped).forEach(date => {
+		const dateAverage = grouped[date].reduce((sum, point) => sum + point) / grouped[date].length
+    groupedLine.push([moment.utc(date).valueOf(), dateAverage])
+	})
+	return groupedLine
+}
+
 const generateTrendline = line => {
-	const dates = line.map(([date, _]) => date)
-	const points = line.map(([_, point]) => point)
+	const groupedLine = groupPointsByDate(line)
+	const dates = groupedLine.map(([date, _]) => date)
+	const points = groupedLine.map(([_, point]) => point)
 	const trendline = []
 	for (let i = 0; i < points.length; i++) {
 		if (i > 0) {
