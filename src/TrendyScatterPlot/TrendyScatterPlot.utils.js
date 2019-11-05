@@ -3,13 +3,7 @@ import moment from 'moment'
 
 const generateScatterPlot = line => {
 	return line.map(([date, point]) => {
-		const deconstructedDate = date.split('/')
-		const newDate = Date.UTC(
-			deconstructedDate[2],
-			deconstructedDate[0] * 1 - 1,
-			deconstructedDate[1] * 1,
-		)
-		return [newDate, point]
+		return [moment.utc(date).valueOf(), point]
 	})
 }
 
@@ -30,7 +24,8 @@ const generateTrendline = line => {
 const parseSeries = (colors, series) => {
 	const parsedData = []
 	series.forEach(({ data, name, ...restOfLine }, index) => {
-		const scatterPlotData = generateScatterPlot(data)
+		const chartData = data.map(({ date, y }) => [date, y])
+		const scatterPlotData = generateScatterPlot(chartData)
 		parsedData.push({
 			name,
 			marker: {
@@ -54,7 +49,19 @@ const parseSeries = (colors, series) => {
 	return parsedData
 }
 
+const getPointsForDate = (pointDate, series) => {
+	let points = []
+	series.forEach(({ name, data }) => {
+		const pointsForDate = data.filter(({ date }) => {
+			return moment.utc(date).valueOf() === pointDate
+		})
+		points.push({ type: name, points: pointsForDate })
+	})
+	return points
+}
+
 export const createChart = (chartRef, colors, series) => {
+	const parsedSeries = parseSeries(colors, series)
 	Highcharts.chart(chartRef, {
 		xAxis: {
 			type: 'datetime',
@@ -67,14 +74,29 @@ export const createChart = (chartRef, colors, series) => {
 			text: '',
 		},
 		plotOptions: {
-			tooltip: {
-				headerFormat: '<b>{series.name}</b><br>',
-				pointFormatter: function() {
-					return `${moment(this.x).format('MM/DD/YYYY')}: ${this.y}`
+			series: {
+				states: {
+					inactive: {
+						opacity: 1,
+					},
 				},
 			},
 		},
-		series: parseSeries(colors, series),
+		tooltip: {
+			crosshairs: true,
+			headerFormat: '',
+			pointFormatter: function() {
+				const xDate = moment.utc(this.x).format('MM/DD/YYYY')
+				let message = `<b>${xDate}</b><br> <br>`
+				getPointsForDate(this.x, series).forEach(({ type, points }) => {
+					message += `<b>${type}</b><br>`
+					points.forEach(({ name, y }) => (message += `${name}: ${y}<br>`))
+					message += ` <br>`
+				})
+				return message
+			},
+		},
+		series: parsedSeries,
 	})
 }
 
